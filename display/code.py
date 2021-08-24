@@ -1,7 +1,4 @@
-# This example implements a simple two line scroller using
-# Adafruit_CircuitPython_Display_Text. Each line has its own color
-# and it is possible to modify the example to use other fonts and non-standard
-# characters.
+import time
 
 import adafruit_display_text.label
 import adafruit_display_shapes.rect
@@ -12,7 +9,28 @@ import displayio
 import framebufferio
 import rgbmatrix
 import terminalio
-import time
+
+import busio
+import neopixel
+from digitalio import DigitalInOut
+from adafruit_esp32spi import adafruit_esp32spi_wifimanager
+from adafruit_esp32spi import adafruit_esp32spi
+
+from secrets import secrets
+
+import mta
+
+esp32_cs = DigitalInOut(board.ESP_CS)
+esp32_ready = DigitalInOut(board.ESP_BUSY)
+esp32_reset = DigitalInOut(board.ESP_RESET)
+spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
+esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
+wifi = adafruit_esp32spi_wifimanager.ESPSPI_WiFiManager(esp, secrets)
+
+resp = wifi.get('https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-bdfm', headers={'x-api-key': secrets['mta-api-key']})
+print(resp.content)
+
+f = mta.Feed()
 
 displayio.release_displays()
 matrix = rgbmatrix.RGBMatrix(
@@ -38,24 +56,6 @@ matrix = rgbmatrix.RGBMatrix(
 display = framebufferio.FramebufferDisplay(matrix)
 
 SYMBOL_FONT = bitmap_font.load_font("/siji_mta.bdf")
-
-
-# Return a train symbol group with the text and shape
-def make_train_symbol(x, y, color):
-    train_symbol = displayio.Group()
-    #  Circle bg
-    # train_symbol.append(adafruit_display_shapes.circle.Circle(
-    #     x, y, 5, outline=color, stroke=1))
-    train_symbol.append(adafruit_display_text.label.Label(
-        SYMBOL_FONT,
-        color=color,
-        text="F",
-        x=x-5,
-        y=y+1,
-        scale=1
-    ))
-
-    return train_symbol
 
 
 TEXT_COLOR = 0x222222
@@ -129,8 +129,6 @@ g.append(bottom_half)
 display.show(g)
 
 
-# You can add more effects in this loop. For instance, maybe you want to set the
-# color of each label to a different value.
 while True:
     display.refresh(minimum_frames_per_second=0)
     time.sleep(.03)

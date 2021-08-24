@@ -6,5 +6,11 @@ env/
 *.code-workspace
 .vscode/
 
-# secrets file
-secrets.py
+# secrets files
+secrets.*
+
+# deploy script
+copy.sh
+
+node_modules/
+.serverless/
