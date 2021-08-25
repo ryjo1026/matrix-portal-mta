@@ -21,6 +21,17 @@ def get_departures(event, context):
     # If the API ever gets to be more than one route, this should be abstracted
     request = urllib.request.Request(_FEED_URLS[3])
 
+    mta_api_key = os.getenv('MTA_API_KEY')
+    if not mta_api_key:
+        return {
+            "statusCode": 500,
+            "body": "Error couldn't get API key from env"
+        }
+
+    stop_id = ''
+    if 'stop_id' in event['resource']:
+        stop_id = event['path'][1:]
+
     # Load key from environment variables
     request.add_header('x-api-key', os.getenv('MTA_API_KEY'))
 
@@ -28,7 +39,6 @@ def get_departures(event, context):
         data = r.read()
         feed = gtfs_realtime_pb2.FeedMessage()
         feed.ParseFromString(data)
-    stop_id = 'D19'
 
     body = {
         'uptown': [],
@@ -39,13 +49,15 @@ def get_departures(event, context):
         if entity.HasField('trip_update'):
             for stopTimeUpdate in entity.trip_update.stop_time_update:
                 if stop_id in stopTimeUpdate.stop_id:
-
                     time_from_now = datetime.datetime.fromtimestamp(stopTimeUpdate.departure.time) - datetime.datetime.now()
+
+                    # We only care about times under an hour
+                    if time_from_now > datetime.timedelta(0, 3600, 0):
+                        continue
 
                     departure = {
                         'route_id': entity.trip_update.trip.route_id,
-                        'departs_in':  (time_from_now.seconds//60) % 60
-
+                        'departs_in':  (time_from_now.seconds//60) % 60,
                     }
 
                     # MTA adds N or S to signify uptown or downtown parts of the station
@@ -64,4 +76,13 @@ def get_departures(event, context):
 
 
 if __name__ == '__main__':
-    print(get_departures(None, None))
+
+    print(
+        json.dumps(
+            json.loads(
+                get_departures(
+                    {'resource': '/{stop_id}', 'path': '/D19'}, None)['body']
+            ),
+            indent=4
+        )
+    )
